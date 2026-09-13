@@ -14,7 +14,8 @@ export function activate(context: vscode.ExtensionContext) {
                 'Architecture Visualizer',
                 vscode.ViewColumn.Two,
                 {
-                    enableScripts: true
+                    enableScripts: true,
+                    retainContextWhenHidden: true // Preserves state when switching editor tabs
                 }
             );
 
@@ -85,15 +86,21 @@ function getWebviewContent(initialContent: string): string {
         .actions {
             display: flex;
             gap: 8px;
+            align-items: center;
         }
-        button {
+        select, button {
             background-color: var(--vscode-button-background);
             color: var(--vscode-button-foreground);
             border: none;
-            padding: 4px 12px;
+            padding: 4px 8px;
             border-radius: 2px;
             cursor: pointer;
             font-size: 12px;
+        }
+        select {
+            background-color: var(--vscode-dropdown-background);
+            color: var(--vscode-dropdown-foreground);
+            border: 1px solid var(--vscode-dropdown-border);
         }
         button:hover {
             background-color: var(--vscode-button-hoverBackground);
@@ -120,6 +127,13 @@ function getWebviewContent(initialContent: string): string {
     <div class="toolbar">
         <h3>Architecture Visualizer</h3>
         <div class="actions">
+            <label for="theme-select" style="font-size: 12px;">Theme:</label>
+            <select id="theme-select" onchange="changeTheme(this.value)">
+                <option value="dark">Dark</option>
+                <option value="default">Default</option>
+                <option value="forest">Forest</option>
+                <option value="neutral">Neutral</option>
+            </select>
             <button onclick="exportSVG()">Export SVG</button>
         </div>
     </div>
@@ -131,32 +145,56 @@ ${initialContent}
     </div>
 
     <script>
-        mermaid.initialize({
-            startOnLoad: true,
-            theme: 'dark'
-        });
+        const vscode = acquireVsCodeApi();
+        const previousState = vscode.getState() || { theme: 'dark', lastContent: \`${initialContent}\` };
+        
+        let currentTheme = previousState.theme;
+        let currentContent = previousState.lastContent;
+
+        document.getElementById('theme-select').value = currentTheme;
+
+        function initMermaid(theme) {
+            mermaid.initialize({
+                startOnLoad: true,
+                theme: theme
+            });
+        }
+
+        initMermaid(currentTheme);
 
         const errorBox = document.getElementById('error-box');
+
+        async function renderDiagram(content, theme) {
+            const container = document.getElementById('diagram-container');
+            try {
+                errorBox.style.display = 'none';
+                mermaid.initialize({ startOnLoad: false, theme: theme });
+                const { svg } = await mermaid.render('rendered-svg-' + Date.now(), content);
+                container.innerHTML = svg;
+                
+                // Persist state in VS Code memory
+                vscode.setState({ theme: theme, lastContent: content });
+            } catch (err) {
+                errorBox.style.display = 'block';
+            }
+        }
 
         window.addEventListener('message', async event => {
             const message = event.data;
             if (message.command === 'updateDiagram') {
-                const container = document.getElementById('diagram-container');
-                try {
-                    errorBox.style.display = 'none';
-                    const { svg } = await mermaid.render('rendered-svg-' + Date.now(), message.content);
-                    container.innerHTML = svg;
-                } catch (err) {
-                    errorBox.style.display = 'block';
-                }
+                currentContent = message.content;
+                renderDiagram(currentContent, currentTheme);
             }
         });
 
+        function changeTheme(newTheme) {
+            currentTheme = newTheme;
+            renderDiagram(currentContent, currentTheme);
+        }
+
         function exportSVG() {
             const svgElement = document.querySelector('#diagram-container svg');
-            if (!svgElement) {
-                return;
-            }
+            if (!svgElement) return;
             const svgData = new XMLSerializer().serializeToString(svgElement);
             const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
             const url = URL.createObjectURL(blob);
