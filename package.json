@@ -14,8 +14,8 @@
   "contributes": {
     "commands": [
       {
-        "command": "arch-visualizer.helloWorld",
-        "title": "Hello World"
+        "command": "arch-visualizer.openVisualizer",
+        "title": "Architecture Visualizer: Open Diagram"
       }
     ]
   },
