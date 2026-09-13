@@ -26,3 +26,9 @@
 ## License
 
 This project is licensed under the MIT License.
+
+## Support & Donations
+
+If you find **arch-visualizer** useful, support ongoing development via PayPal:
+
+[![Donate with PayPal](https://img.shields.io/badge/Donate-PayPal-00457C.svg?style=for-the-badge&logo=paypal&logoColor=white)](https://www.paypal.com/donate/?hosted_button_id=VSNKETWN43UVW)
